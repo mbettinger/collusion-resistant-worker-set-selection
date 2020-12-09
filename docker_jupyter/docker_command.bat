@@ -1,0 +1,1 @@
+docker run -p 8888:8888 -p 6006:6006 -it -u user -v //d/Programming/trust-free-multiparty-referendum-protocol:/home/project -w /home/user tiagopeixoto/graph-tool bash /home/project/docker_jupyter/jupyter_command.txt > docker_logs.txt
