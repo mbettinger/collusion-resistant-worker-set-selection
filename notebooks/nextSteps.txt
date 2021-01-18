@@ -1,0 +1,7 @@
+Input: fichier de données graphes "V1" "V2"
+-> genere une liste ordonnée V1..VN
+-> prendre k parmi N random.sample(list, k)
+-> genere un numéro d'arrangement/de permut/de combi
+-> numéro obtenu comme graine d'un RNG
+-> choisir k parmi N grâce à ton RNG dans la liste ordonnée V1..VN (combinaison)
+-> à partir des workers choisis, envoi dans la pipeline graphe & métriques
