@@ -77,7 +77,7 @@ def findCommunities(graph):
                         graph.community_label_propagation,
                         graph.community_leading_eigenvector]
     
-    partition=detect_communities[0]()
+    partition=detect_communities[1]()
     
     colours=colorDistribution(len(partition))
 
