@@ -77,7 +77,7 @@ def findCommunities(graph):
                         graph.community_label_propagation,
                         graph.community_leading_eigenvector]
     
-    partition=detect_communities[1]()
+    partition=detect_communities[0]()
     
     colours=colorDistribution(len(partition))
 
@@ -92,7 +92,7 @@ def findCommunities(graph):
                     ed["color"]=[0.,0.,0.,1.]
                 else:
                     ed["color"]=[0.5,0.5,0.5,1.]
-    return partition
+    return graph, partition
 
 
 def chooseVertexByMinBetweenness(graph):
@@ -534,7 +534,7 @@ def diameterWorkerAssignment(graph,partition,clusterGraph,remainingWorkers,clust
 def assignWorkers(graph,nWorkers):
     assert nWorkers>=0, "{} workers to assign: Number of workers to assign must be positive or zero".format(nWorkers)
     assert len(graph.vs)>=nWorkers, "{} workers to assign on {} nodes: Can't assign more workers than there are vertices".format(nWorkers,len(graph.vs))
-    partition=findCommunities(graph)
+    graph, partition=findCommunities(graph)
     
     clusterGraph=partition.cluster_graph("first")
 
@@ -571,10 +571,10 @@ def assignWorkers(graph,nWorkers):
     #for chaque cluster de workers
     #prendre son sous-graphe+ les noeuds frontaliers d'autres clusters, BFS des frontières et Etape1 nb_workers fois
     for clusterId in clusterIds:
-        get_ipython().run_line_magic('time', 'workerIds.extend(assignWorkersInCommunity(graph,clusterGraph,clusterId))')
+        workerIds.extend(assignWorkersInCommunity(graph,clusterGraph,clusterId))
     
     assert len(workerIds)==nWorkers, "Assigned {} workers instead of {}".format(len(workerIds),nWorkers)
-    return workerIds,partition,clusterGraph,clusterIds
+    return graph,workerIds,partition,clusterGraph,clusterIds
 
 
 #Given a list of nodes, give distances between nodes

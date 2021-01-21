@@ -1,1 +1,2 @@
-from libs.community_detection import o
+from libs.community_detection import worker_selection
+from libs.community_detection import draw

@@ -3,6 +3,7 @@
 import math
 from itertools import combinations,permutations
 import random
+import igraph as ig
 
 from bisect import bisect_left
 
@@ -26,7 +27,7 @@ def valueInList(searchList):
         return searchList[idx]
     return returnValue
 
-def generatePermutationNumber(totalList):
+def generatePermutationNumber(sublist,totalList):
     arrNumber=0
     #Sum(i=0:V-1|i!(sum(k=0:i|-1{xk<xi})))
     N=len(totalList)
@@ -101,9 +102,23 @@ def generateArrangementNumber(sublist, totalList):
     
     previousArrCount=sum([rangeProduct(range(N-i+1,N+1)) for i in range(V)])
     combiNumber=generateCombinationNumber(sublist,totalList)
-    permutNumber=generatePermutationNumber(sublist)
+    permutNumber=generatePermutationNumber(sublist,totalList)
     
     arrNumber=previousArrCount+combiNumber*fact(V)+permutNumber
     return arrNumber
 
-
+def orderBasedWorkerSelection(graph, nVoters, nWorkers, voterSeed, numGenFunction=generateArrangementNumber):
+    
+    vertices = graph.vs["name"]
+    
+    random.seed(voterSeed) 
+    
+    voters = random.sample(vertices, nVoters)
+    
+    seed = numGenFunction(voters, vertices)
+    
+    random.seed(seed)
+    
+    workers = random.sample(vertices, nWorkers)
+    
+    return workers
