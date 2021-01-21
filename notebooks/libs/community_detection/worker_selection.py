@@ -129,7 +129,7 @@ def chooseVertexMaxShortestPathsSum(graph):
 
 
 choiceFunctions=[chooseVertexByMinBetweenness,chooseVertexByMaxEccentricity,chooseVertexMaxShortestPathsSum]
-chosenFunction=choiceFunctions[2]
+chosenFunction=choiceFunctions[0]
 def chooseVertex(graph,choiceFunction=chosenFunction):
     assert len(graph.vs)>0, "Can't choose a vertex in an empty graph." 
     node=None
@@ -576,43 +576,4 @@ def assignWorkers(graph,nWorkers):
     assert len(workerIds)==nWorkers, "Assigned {} workers instead of {}".format(len(workerIds),nWorkers)
     return graph,workerIds,partition,clusterGraph,clusterIds
 
-
-#Given a list of nodes, give distances between nodes
-def calcDistBtwnNodes(graph,chosenSourceNames,chosenTargetNames=None):
-    if chosenTargetNames is None:
-        return graph.shortest_paths_dijkstra(source=chosenSourceNames, target=chosenSourceNames)
-    else:
-        return graph.shortest_paths_dijkstra(source=chosenSourceNames, target=chosenTargetNames)
-
-
-
-def graphDistances(F,workerIdsSrc,workerIdsTarget=None,cluster=None):
-    matPCC=None
-    if workerIdsTarget is None:
-        workerIdsTarget=workerIdsSrc
-    matPCC=calcDistBtwnNodes(F,workerIdsSrc,workerIdsTarget)
-
-    PCCList=[]
-    for sublist in matPCC:
-        PCCList.extend(sublist)
-    maxDist=max(PCCList,default=1)
-    PCCSelf=[]
-    PCCSameCluster=[]
-    PCCOtherCluster=[]
-
-    for i, dists in enumerate(matPCC):
-        source=F.vs.find(workerIdsSrc[i])
-        for j in range(len(matPCC[i])):
-            target=F.vs.find(workerIdsTarget[j])
-            #print(source,target)
-            if source["name"]==target["name"]:
-                PCCSelf.append(matPCC[i][j])
-            elif source["cluster"]==target["cluster"] and (cluster is None or source["cluster"]==cluster):
-                PCCSameCluster.append(matPCC[i][j])
-            else:
-                PCCOtherCluster.append(matPCC[i][j])
-    
-    print("Same",Counter(PCCSameCluster))
-    print("Other",Counter(PCCOtherCluster))
-    return PCCSelf,PCCSameCluster,PCCOtherCluster
 

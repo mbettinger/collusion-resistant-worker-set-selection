@@ -8,11 +8,9 @@ def emphasizeWorkers(F,workerIds):
         else:
             v["size"]=1
             v["shape"]="circle"
-        print(v)
     return F
 
 def drawGraph(graph,imgPath):
-    #print(graph)
     G=graph.to_graph_tool(vertex_attributes={"color":"vector<float>","size":"int","shape":"string"},edge_attributes={"color":"vector<float>"})
     gt.graph_draw(G, output=imgPath,
                   vertex_fill_color=G.vertex_properties["color"],

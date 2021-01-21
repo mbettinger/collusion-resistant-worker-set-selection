@@ -85,7 +85,6 @@ def generateCombinationNumber(sublist, totalList):
 
     return combiNumber
 
-import math
 def generateArrangementNumber(sublist, totalList):
     totalList=sorted(totalList)
     arrNumber=0

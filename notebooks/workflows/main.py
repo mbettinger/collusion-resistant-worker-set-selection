@@ -6,6 +6,7 @@ from workflow_manager import meta
 from workflow_manager import util
 
 from libs import community_detection
+from libs import evaluation
 from libs.order_based_seed_gen import numbering
 from libs import preprocessing
 from itertools import permutations
@@ -38,7 +39,7 @@ pipeline=Pipeline([
                 ),
                 Step(
                     numbering.orderBasedWorkerSelection,
-                    args=["graph","nVoters","nWorkers","numGenFunction"],
+                    args=["graph","nVoters","nWorkers","voterSeed","numGenFunction"],
                     outputs=["workers"],
                 ),
                 Step(
@@ -51,9 +52,16 @@ pipeline=Pipeline([
                     outputs=["graph","partition"]
                 ),
                 Step(
-                    lambda fp: imgDirPath+fp.split(".")[0].split("/")[-1]+".png",
+                    lambda fp: (imgDirPath+fp.split(".")[0].split("/")[-1]+".png",
+                                imgDirPath+fp.split(".")[0].split("/")[-1]+"_ClustDist.png",
+                                imgDirPath+fp.split(".")[0].split("/")[-1]+"_InClustDist.png",
+                                imgDirPath+fp.split(".")[0].split("/")[-1]+"_diameters.png",
+                                imgDirPath+fp.split(".")[0].split("/")[-1]+"_radii.png",
+                                imgDirPath+fp.split(".")[0].split("/")[-1]+"_nodesPerCom.png",
+                                imgDirPath+fp.split(".")[0].split("/")[-1]+"_workersPerCom.png",
+                               ),
                     args=["filepath"],
-                    outputs=["imgPath"]
+                    outputs=["imgPath","imgCDPath","imgInCDPath","imgDiamPath","imgRadPath","imgNpCPath","imgWpCPath"]
                 ),
                 Step(
                     community_detection.draw.emphasizeWorkers,
@@ -63,5 +71,34 @@ pipeline=Pipeline([
                 Step(
                     community_detection.draw.drawGraph,
                     args=["graph","imgPath"]
-                )
+                ),
+                Step(
+                    evaluation.workerDistances,
+                    args=["graph","workers","imgCDPath"]
+                ),
+                Step(
+                    evaluation.diameters,
+                    args=["partition","imgDiamPath"]
+                ),
+                Step(
+                    evaluation.radii,
+                    args=["partition","imgRadPath"]
+                ),
+                Step(
+                    evaluation.workerInClusterDistances,
+                    args=["graph","partition","workers","imgInCDPath"]
+                ),
+                Step(
+                    evaluation.nodesPerCommunity,
+                    args=["graph","imgNpCPath"]
+                ),
+                Step(
+                    evaluation.workersPerCommunity,
+                    args=["graph","workers","imgWpCPath"]
+                ),
+                Step(
+                    evaluation.optimalWorkerCountByDiameters,
+                    args=["partition"],
+                    outputs=["optimalNWorkers"]
+                ),
 ],name="MainWorkflow")
