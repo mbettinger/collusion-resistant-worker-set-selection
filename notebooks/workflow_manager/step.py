@@ -1,4 +1,5 @@
 from workflow_manager.data import Data
+from workflow_manager.temporizer import *
 import inspect
 import types
 import copy
@@ -112,7 +113,7 @@ class Step():
 
                     args=[]
                     for input_key in self.args:
-                        args.append(data_container[input_key])
+                        args.append(exec_just_in_time(data_container[input_key]))
 
                     funct_container=Data.rel_deep_copy(data_container)
 
@@ -121,8 +122,12 @@ class Step():
 
                     if not self.keep_inputs:
                         for input_key in self.args:
+                            if input_key in funct_container.read_only:
+                                funct_container.read_only.remove(input_key)
                             funct_container.pop(input_key)
                         for input_key in self.nargs:
+                            if input_key in funct_container.read_only:
+                                funct_container.read_only.remove(input_key)
                             funct_container.pop(input_key)
 
                     if self.outputs is not None:

@@ -3,6 +3,8 @@ import re
 import copy
 import os
 import pickle as pk
+
+from workflow_manager.temporizer import *
 class Data(dict):
     """
     Stores execution informations, including the latest data and the steps it was *generated_through*.
@@ -17,12 +19,11 @@ class Data(dict):
         rel_deep_copy uses copy.deepcopy except for read_only keys which are directly referenced.
         """
         copied_data=Data()
-        copied_data.generated_through=copy.deepcopy(data.generated_through)
+        copied_data.generated_through=temporizer(copy.deepcopy,data.generated_through)
         for key in data.keys():
             if key not in data.read_only:
-                copied_data[key]=copy.deepcopy(data[key])
+                copied_data[key]=temporizer(copy.deepcopy,data[key])
             else:
-                print(key)
                 copied_data[key]=data[key]
         return copied_data
 
@@ -31,7 +32,7 @@ class Data(dict):
         return Data(parameter_list)
 
     def to_dict(self):
-        return {key:value for key, value in self.items()}
+        return {key:exec_just_in_time(value) for key, value in self.items()}
 
     @staticmethod
     def from_file(filepath, rm=False):
@@ -48,6 +49,8 @@ class Data(dict):
         """
         fullpath=self.get_desc_name(filepath)+"_"+str(datetime.now())+".pkl"
         with open(fullpath, "wb") as file:
+            for key,val in self.items():
+                self[key]=exec_just_in_time(val)
             pk.Pickler(file).dump(self)
         return fullpath
 
@@ -69,12 +72,16 @@ class Data(dict):
         return super().__setitem__(key, value)
 
     def __repr__(self):
+        for key,val in self.items():
+            self[key]=exec_just_in_time(val)
         return "Data(\n\tdata = "+super().__repr__()+", \n\tread_only = "+str(self.read_only)+", \n\tgenerated_through = "+str(self.generated_through)+", \n\tlast_modified = \""+str(self.last_modified_at)+"\"\n)"
     
     def __str__(self):
         return super().__str__()
 
     def append_step(self, step):
+        self.generated_through=exec_just_in_time(self.generated_through)
+
         self.generated_through.append(step)
         self.last_modified_at = datetime.now()
 
@@ -115,7 +122,7 @@ class Data(dict):
             params_names=data[params_match.span()[0]+1:params_match.span()[1]-1]
             params_names=re.split(",",params_names)
             params=[self[param] for param in params_names]
-            
+            params=[exec_just_in_time(param) for param in params_names ]
             param_formatter=lambda l,r:str(l)+"="+str(r)
 
             data_str=",".join(list(map(param_formatter,params_names,params)))

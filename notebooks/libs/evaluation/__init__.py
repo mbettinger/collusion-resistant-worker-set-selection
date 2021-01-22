@@ -67,7 +67,7 @@ def graphDistances(F,workerIdsSrc,workerIdsTarget=None,cluster=None):
     return PCCSelf,PCCSameCluster,PCCOtherCluster
 
 
-def workerDistances(graph,workerIds,imgPath):
+def workerDistances(graph,workerIds,imgPath=None):
     data=list(graphDistances(graph,workerIds))
     colors=["grey","red","blue"]
     labels=["self","same community","other community"]
@@ -92,8 +92,8 @@ def workerDistances(graph,workerIds,imgPath):
                "same":comHeights[len(comHeights)//3:2*len(comHeights)//3],
                "other":comHeights[2*len(comHeights)//3:]
               }
-    
-    fig.savefig(imgPath)
+    if imgPath is not None:
+        fig.savefig(imgPath)
     plt.close(fig)
     
     return heights
@@ -101,7 +101,7 @@ def workerDistances(graph,workerIds,imgPath):
 def sumWorkerDists(graph,workerIds):
     return sum([sum(l) for l in graphDistances(graph,workerIds)])
 
-def workerInClusterDistances(graph,partition,workerIds,imgPath):
+def workerInClusterDistances(graph,partition,workerIds,imgPath=None):
     nbClusters=len(partition.subgraphs())
     nbCol=4
     fig,ax = plt.subplots(nrows = nbClusters//nbCol, ncols = nbCol,sharex=True, sharey=True,figsize=(nbCol*4,3*nbClusters//nbCol))
@@ -136,49 +136,55 @@ def workerInClusterDistances(graph,partition,workerIds,imgPath):
     fig.suptitle='Shortest path lengths between workers'
     fig.xlabel='Shortest path length'
     fig.ylabel='Count of workers'
-    fig.savefig(imgPath)
+    
+    if imgPath is not None:
+        fig.savefig(imgPath)
     plt.close(fig)
     
     return heights
     
-def diameters(partition,imgPath):
+def diameters(partition,imgPath=None):
     subgraphs=partition.subgraphs()
     diams=list([subgraph.diameter() for subgraph in subgraphs])
     fig,ax = plt.subplots(nrows = 1, ncols = 1,figsize=(4,3))
     ax.plot(diams)
-    fig.savefig(imgPath)
+    if imgPath is not None:
+        fig.savefig(imgPath)
     plt.close(fig)
     return diams
 
-def radii(partition,imgPath):
+def radii(partition,imgPath=None):
     subgraphs=partition.subgraphs()
     radii=list([subgraph.radius() for subgraph in subgraphs])
     fig,ax = plt.subplots(nrows = 1, ncols = 1,figsize=(4,3))
     ax.plot(radii)
-    fig.savefig(imgPath)
+    if imgPath is not None:
+        fig.savefig(imgPath)
     plt.close(fig)
     
     return radii
     
-def nodesPerCommunity(graph,imgPath):
+def nodesPerCommunity(graph,imgPath=None):
     nbClusters=len(Counter(graph.vs["cluster"]))
     bins = np.arange(0, nbClusters+1, 1)
     fig,ax = plt.subplots(nrows = 1, ncols = 1,figsize=(4,3))
     ax.hist(graph.vs["cluster"], bins=bins)
-
-    fig.savefig(imgPath)
+    
+    if imgPath is not None:
+        fig.savefig(imgPath)
     plt.close(fig)
     return nbClusters
     
-def workersPerCommunity(graph,workerIds,imgPath):
+def workersPerCommunity(graph,workerIds,imgPath=None):
     nbClusters=len(Counter(graph.vs["cluster"]))
     data=[graph.vs.find(worker)["cluster"] for worker in workerIds]
     bins = np.arange(0, nbClusters+1, 1)
     
     fig,ax = plt.subplots(nrows = 1, ncols = 1,figsize=(4,3))
     ax.hist(data, bins=bins)
-
-    fig.savefig(imgPath)
+    
+    if imgPath is not None:
+        fig.savefig(imgPath)
     plt.close(fig)
     return nbClusters
     
@@ -189,7 +195,15 @@ def optimalWorkerCountByDiameters(partition):
     assignedWorkers=sum(workers)
     return assignedWorkers
 
-def closenessCliques(graph, minDist, imgPath, nodesSubset=None):
+def closenessCliques(graph, maxDist, nodesSubset=None, imgPath=None):
+    criterion=lambda df,mD:(df <= mD) & (df > 0)
+    return graphCliques(criterion, graph, maxDist, nodesSubset, imgPath)
+
+def farnessCliques(graph, minDist, nodesSubset=None, imgPath=None):
+    criterion=lambda df,mD:df >= mD
+    return graphCliques(criterion, graph, minDist, nodesSubset, imgPath)
+
+def graphCliques(criterion, graph, minDist, nodesSubset=None, imgPath=None):
     nodes=graph.vs
     candidates=set()
     if nodesSubset is None:
@@ -200,13 +214,14 @@ def closenessCliques(graph, minDist, imgPath, nodesSubset=None):
         matPCC=graph.shortest_paths_dijkstra(nodesIdx,nodesIdx)
 
     dfPCC=pd.DataFrame(matPCC,nodesSubset,nodesSubset)
-    restrictDf=(dfPCC.where((dfPCC <= minDist) & (dfPCC > 0))).values.tolist()
+    restrictDf=(dfPCC.where(criterion(dfPCC,minDist))).values.tolist()
     g = ig.Graph.Adjacency(restrictDf).as_undirected()
     g.vs["name"]=nodesSubset
-    ig.plot(g,imgPath)
+    if imgPath is not None:
+        ig.plot(g,imgPath)
 
     try:
-        cliques=deadline(30)(g.largest_cliques)()
+        cliques=deadline(10)(g.largest_cliques)()
         candidates=sorted([[nodesSubset[idx] for idx in clique] for clique in cliques],reverse=True)
         
     except TimeoutException:
