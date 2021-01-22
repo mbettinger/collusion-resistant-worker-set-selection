@@ -1,5 +1,5 @@
 import pickle as pk
-
+from workflow_manager.data import Data
 def sort(data_containers, criterion):
     return sorted(data_containers,key=criterion)[::-1]
 
@@ -25,3 +25,12 @@ def export_data(data_containers, export_path, pickle=True):
         with open(export_path, "w") as file:
             file.write(str(data_containers))
     return data_containers
+
+def split(data_containers, key):
+    newDataContainers=[]
+    for data_c in data_containers:
+        for val in data_c[key]:
+            dc=Data.rel_deep_copy(data_c)
+            dc[key]=val
+            newDataContainers.append(dc)
+    return newDataContainers
