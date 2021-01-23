@@ -121,8 +121,9 @@ class Data(dict):
             params_match=re.search(r"\[[a-zA-Z0-9_,]*\]$",data)
             params_names=data[params_match.span()[0]+1:params_match.span()[1]-1]
             params_names=re.split(",",params_names)
-            params=[self[param] for param in params_names]
-            params=[exec_just_in_time(param) for param in params_names ]
+            
+            params=[exec_just_in_time(self[param]) for param in params_names ]
+            
             param_formatter=lambda l,r:str(l)+"="+str(r)
 
             data_str=",".join(list(map(param_formatter,params_names,params)))

@@ -72,12 +72,9 @@ def colorDistribution(nbColors):
     colours = [colorsys.hsv_to_rgb(hue, sat, value) for hue,sat,value in HSVs]
     return colours
 
-def findCommunities(graph):
-    detect_communities=[graph.community_multilevel,
-                        graph.community_label_propagation,
-                        graph.community_leading_eigenvector]
+def findCommunities(graph_community_detection_method):
     
-    partition=detect_communities[0]()
+    partition=graph_community_detection_method()
     
     colours=colorDistribution(len(partition))
 
@@ -92,7 +89,7 @@ def findCommunities(graph):
                     ed["color"]=[0.,0.,0.,1.]
                 else:
                     ed["color"]=[0.5,0.5,0.5,1.]
-    return graph, partition
+    return partition
 
 
 def chooseVertexByMinBetweenness(graph):

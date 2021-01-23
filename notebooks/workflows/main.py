@@ -12,6 +12,8 @@ from libs import preprocessing
 from itertools import permutations
 import igraph as ig
 
+import os
+
 import numpy as np
 import math
 dirPath="graphs/formatted/"
@@ -20,38 +22,77 @@ imgDirPath="graphs/img/"
 pipeline=Pipeline([
                 Step(
                     util.add_params,
-                    params=PG({"filepath":filePathList}),
-                    outputs=["filepath"]
+                    params=PG({"filename":filePathList}),
+                    outputs=["filefullname"]
+                ),
+                Step(
+                    lambda fn:fn.split(".")[0],
+                    args=["filefullname"],
+                    outputs=["filename"]
                 ),
                 Step(
                     lambda fn:dirPath+fn,
-                    args=["filepath"],
+                    args=["filefullname"],
                     outputs=["filepath"]
-                ),
-                Step(
-                    lambda fp:ig.Graph.Read(fp,format="ncol").as_undirected(),
-                    args=["filepath"],
-                    outputs=["graph"]
-                ),
-                Step(
-                    community_detection.worker_selection.findCommunities,
-                    args=["graph"],
-                    outputs=["graph","partition"],
-                    read_only_outputs=set(["graph"])
                 ),
                 Pipeline([
                     Step(
-                        lambda fp: (
-                                    imgDirPath+fp.split(".")[0].split("/")[-1]+"_diameters.png",
-                                    imgDirPath+fp.split(".")[0].split("/")[-1]+"_radii.png",
-                                    imgDirPath+fp.split(".")[0].split("/")[-1]+"_nodesPerCom.png",
+                        lambda fn:imgDirPath+fn+"/",
+                        args=["filename"],
+                        outputs=["imgDirPath"]
+                    ),
+                    Step(
+                        lambda imgDP: os.mkdir(imgDP) if not os.path.isdir(imgDP) else False,
+                        args=["imgDirPath"]
+                    ),
+                ],name="Create folders"),
+                Step(
+                    lambda fp:ig.Graph.Read(fp,format="ncol").as_undirected(),
+                    args=["filepath"],
+                    outputs=["graph"],
+                    name="Load graph"
+                ),
+                Pipeline([
+                    Step(
+                        lambda g:[g.community_multilevel,
+                                        g.community_label_propagation,
+                                        #g.community_leading_eigenvector
+                                 ],
+                        args=["graph"],
+                        outputs=["community_detection_method"],
+                        keep_inputs=False
+                    ),
+                    MetaStep(
+                        meta.split,
+                        params={"key":"community_detection_method"}
+                    ),
+                    Step(
+                        community_detection.worker_selection.findCommunities,
+                        args=["community_detection_method"],
+                        outputs=["partition"],
+                        read_only_outputs=set(["partition"])
+                    ),
+                    Step(
+                        lambda func:func.__name__,
+                        args=["community_detection_method"],
+                        outputs=["com_det"],
+                        keep_inputs=False,
+                        name="Keep only community detection method name"
+                    ),
+                ],name="Community detection"),
+                Pipeline([
+                    Step(
+                        lambda fn,iDP,comDet: (
+                                    iDP+fn+"_"+comDet+"_diameters.png",
+                                    iDP+fn+"_"+comDet+"_radii.png",
+                                    iDP+fn+"_"+comDet+"_nodesPerCom.png",
                                    ),
-                        args=["filepath"],
+                        args=["filename","imgDirPath","com_det"],
                         outputs=["imgDiamPath","imgRadPath","imgNpCPath"]
                     ),
                     Step(
-                        lambda g: g.diameter(),
-                        args=["graph"],
+                        lambda p: p.graph.diameter(),
+                        args=["partition"],
                         outputs=["diameter"]
                     ),
                     Step(
@@ -71,14 +112,14 @@ pipeline=Pipeline([
                     ),
                     Step(
                         evaluation.nodesPerCommunity,
-                        args=["graph","imgNpCPath"],
+                        args=["partition","imgNpCPath"],
                         outputs=["nodesPerCommunity"]
                     )
                 ],name="Graph & Community metrics"),
                 Pipeline([
                     Step(
-                        lambda g:np.logspace(1, math.log10(len(g.vs)//2), 5, endpoint=True,dtype=int),
-                        args=["graph"],
+                        lambda p:[int(nW) for nW in np.logspace(1, math.log10(len(p.graph.vs)//2), 5, endpoint=True,dtype=int)],
+                        args=["partition"],
                         outputs=["nWorkers"],
                         read_only_outputs=set("nWorkers")
                     ),
@@ -87,74 +128,101 @@ pipeline=Pipeline([
                         params={"key":"nWorkers"}
                     )
                 ],name="nWorkers spacing"),
-                Step(
-                    util.add_params,
-                    params=PG({"nVoters":10,"voterSeed":range(1),
-                               "numGenFunction":numbering.generateArrangementNumber
-                              }),
-                    outputs=["nVoters","voterSeed","numGenFunction"]
-                ),
-                Step(
-                    numbering.orderBasedWorkerSelection,
-                    args=["graph","nVoters","nWorkers","voterSeed","numGenFunction"],
-                    outputs=["workers"],
-                    read_only_outputs=set("workers")
-                ),
+                [
+                    Pipeline([
+                        Step(
+                            util.add_params,
+                            params=PG({"nVoters":10,"voterSeed":range(1),
+                                       "numGenFunction":numbering.generateArrangementNumber
+                                      }),
+                            outputs=["nVoters","voterSeed","numGenFunction"]
+                        ),
+                        Step(
+                            lambda p,nV,nW,vS,nGF: numbering.orderBasedWorkerSelection(p.graph,nV,nW,vS,nGF),
+                            args=["partition","nVoters","nWorkers","voterSeed","numGenFunction"],
+                            outputs=["workers"],
+                            read_only_outputs=set("workers")
+                        ),
+                        Step(
+                            lambda func:func.__name__,
+                            args=["numGenFunction"],
+                            outputs=["numGenFunction"],
+                            name="Keep only function name"
+                        ),
+                    ],name="Voting-order-based worker selection"),
+                ],
                 Pipeline([
                     Step(
-                        lambda fp,nw,vs: (imgDirPath+fp.split(".")[0].split("/")[-1]+"_Graph_{}w{}s.png".format(nw,vs),
-                                    imgDirPath+fp.split(".")[0].split("/")[-1]+"_ClustDist_{}w{}s.png".format(nw,vs),
-                                    imgDirPath+fp.split(".")[0].split("/")[-1]+"_InClustDist_{}w{}s.png".format(nw,vs),
-                                    imgDirPath+fp.split(".")[0].split("/")[-1]+"_workersPerCom_{}w{}s.png".format(nw,vs),
+                        lambda fn,iDP,nw,vs,comDet: (
+                                    iDP+fn+"_"+comDet+"_Graph_{}w{}s.png".format(nw,vs),
+                                    iDP+fn+"_"+comDet+"_ClustDist_{}w{}s.png".format(nw,vs),
+                                    iDP+fn+"_"+comDet+"_InClustDist_{}w{}s.png".format(nw,vs),
+                                    iDP+fn+"_"+comDet+"_workersPerCom_{}w{}s.png".format(nw,vs),
                                    ),
-                        args=["filepath","nWorkers","voterSeed"],
+                        args=["filename","imgDirPath","nWorkers","voterSeed","com_det"],
                         outputs=["imgPath","imgCDPath","imgInCDPath","imgWpCPath"]
-                    ),
-                    #Step(
-                    #    community_detection.draw.emphasizeWorkers,
-                    #    args=["graph","workers"],
-                    #    outputs=["graph"]
-                    #),
-                    #Step(
-                    #    community_detection.draw.drawGraph,
-                    #    args=["graph","imgPath"]
-                    #),
-                    Step(
-                        evaluation.workerDistances,
-                        args=["graph","workers","imgCDPath"],
-                        outputs=["workerDistances"]
                     ),
                     Step(
                         evaluation.workerInClusterDistances,
-                        args=["graph","partition","workers","imgInCDPath"],
+                        args=["partition","workers","imgInCDPath"],
                         outputs=["workerComDistances"]
                     ),
                     Step(
+                        evaluation.workerDistances,
+                        args=["partition","workers","imgCDPath"],
+                        outputs=["workerDistances"]
+                    ),
+                    Step(
                         evaluation.workersPerCommunity,
-                        args=["graph","workers","imgWpCPath"],
+                        args=["partition","workers","imgWpCPath"],
                         outputs=["workersPerCommunity"]
+                    ),
+                    Step(
+                        lambda p:p.graph,
+                        args=["partition"],
+                        outputs=["graph"],
+                        keep_inputs=False
+                    ),
+                    Step(
+                        community_detection.draw.emphasizeWorkers,
+                        args=["graph","workers"],
+                        outputs=["graph"]
+                    ),
+                    Step(
+                        community_detection.draw.drawGraph,
+                        args=["graph","imgPath"]
                     ),
                 ],name="Workers metrics"),
                 [
                     Pipeline([
                         Step(
                             util.add_params,
-                            params=PG({"maxDist":range(1,4)}),
-                            outputs=["maxDist"]
+                            params={"distType":"close"},
+                            outputs=["distType"]
                         ),
                         Step(
-                            lambda mD,nw,vs,fp:"{}{}_{}-closecliquesGraph_{}w{}s.png".format(
-                                                    imgDirPath,fp.split(".")[0].split("/")[-1],mD,nw,vs),
-                            args=["maxDist","nWorkers","voterSeed","filepath"],
+                            util.add_params,
+                            params=PG({"minDist":range(1,4)}),
+                            outputs=["minDist"]
+                        ),
+                        Step(
+                            lambda mD,nw,vs,fn,iDP:"{}{}_{}-closecliquesGraph_{}w{}s.png".format(
+                                                    iDP,fn,mD,nw,vs),
+                            args=["minDist","nWorkers","voterSeed","filename","imgDirPath"],
                             outputs=["cliqueImgPath"]
                         ),
                         Step(
                             evaluation.closenessCliques,
-                            args=["graph", "maxDist", "workers"],#, "cliqueImgPath"],
+                            args=["graph", "minDist", "workers"],#, "cliqueImgPath"],
                             outputs=["candidates"]
                         )
                     ],name="Close workers cliques"),
                     Pipeline([
+                        Step(
+                            util.add_params,
+                            params={"distType":"far"},
+                            outputs=["distType"]
+                        ),
                         Step(
                             lambda d:list(range(4,d+1)),
                             args=["diameter"],
@@ -165,9 +233,9 @@ pipeline=Pipeline([
                             params={"key":"minDist"}
                         ),
                         Step(
-                            lambda mD,nw,vs,fp:"{}{}_{}-farcliquesGraph_{}w{}s.png".format(
-                                                    imgDirPath,fp.split(".")[0].split("/")[-1],mD,nw,vs),
-                            args=["minDist","nWorkers","voterSeed","filepath"],
+                            lambda mD,nw,vs,fn,iDP:"{}{}_{}-farcliquesGraph_{}w{}s.png".format(
+                                                    iDP,fn,mD,nw,vs),
+                            args=["minDist","nWorkers","voterSeed","filename","imgDirPath"],
                             outputs=["cliqueImgPath"]
                         ),
                         Step(
@@ -179,6 +247,6 @@ pipeline=Pipeline([
                 ],
                 MetaStep(
                     meta.remove_params,
-                    params={"keys":["graph","partition"]}
+                    params={"keys":["graph"]}
                 )
 ],name="MainWorkflow")

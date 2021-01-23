@@ -33,11 +33,11 @@ def run_workflow(workflow="workflows.test", input_data_path=None, output_data_pa
                 data_file.write(str(data))
         if use_dict:
             for index,data_container in enumerate(data):
-                with open(output_data_path+str(index)+".dict", "w") as data_file:
+                with open(data_container.get_desc_name(output_data_path)+"_"+str(index)+".dict", "w") as data_file:
                     data_file.write(str(data_container.to_dict()))
         if use_json:
             for index,data_container in enumerate(data):
-                with open(output_data_path+str(index)+".json", "w") as data_file:
+                with open(data_container.get_desc_name(output_data_path)+"_"+str(index)+".json", "w") as data_file:
                     json.dump(data_container.to_dict(),data_file, ensure_ascii=False)
     return data
 
