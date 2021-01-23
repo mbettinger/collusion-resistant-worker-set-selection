@@ -19,6 +19,71 @@ import math
 dirPath="graphs/formatted/"
 filePathList=preprocessing.getFileNamesInDir(dirPath)
 imgDirPath="graphs/img/"
+
+communityBasedPipeline=Pipeline([
+        Step(
+            util.add_params,
+            params=PG({"community_worker_repartition":[
+                                community_detection.worker_selection.sizeProRataWorkerAssignement,
+                                community_detection.worker_selection.sizeOrderedRoundRobinWorkerAssignement,
+                                community_detection.worker_selection.diameterProRataWorkerAssignement,
+                                #community_detection.worker_selection.diameterWorkerAssignment
+                             ],
+                       "withBoundary":[True,
+                                       False
+                                      ]
+                      }),
+            outputs=["community_worker_repartition","withBoundary"]
+        ),
+        Step(
+            community_detection.worker_selection.assignWorkers,
+            args=["partition","nWorkers","community_worker_repartition","withBoundary"],
+            outputs=["workers"],
+            read_only_outputs=set("workers")
+        ),
+        Step(
+            lambda func:func.__name__,
+            args=["community_worker_repartition"],
+            outputs=["assignment"],
+            keep_inputs=False,
+            name="Keep only function name"
+        ),
+            Step(
+            util.add_params,
+            params={"voterSeed":"NA"},
+            outputs=["voterSeed"]
+        )
+    ],name="Community-based worker selection")
+
+voterOrderBasedPipeline=Pipeline([
+        Step(
+            util.add_params,
+            params=PG({"nVoters":10,"voterSeed":range(5),
+                       "numGenFunction":numbering.generateArrangementNumber
+                      }),
+            outputs=["nVoters","voterSeed","numGenFunction"]
+        ),
+        Step(
+            lambda p,nV,nW,vS,nGF: numbering.orderBasedWorkerSelection(p.graph,nV,nW,vS,nGF),
+            args=["partition","nVoters","nWorkers","voterSeed","numGenFunction"],
+            outputs=["workers"],
+            read_only_outputs=set("workers")
+        ),
+        Step(
+            lambda func:func.__name__,
+            args=["numGenFunction"],
+            outputs=["assignment"],
+            keep_inputs=False,
+            name="Keep only function name"
+        ),
+        Step(
+            util.add_params,
+            params={"withBoundary":False},
+            outputs=["withBoundary"]
+        )
+    ],name="Voting-order-based worker selection")
+                    
+
 pipeline=Pipeline([
                 Step(
                     util.add_params,
@@ -75,10 +140,10 @@ pipeline=Pipeline([
                     Step(
                         lambda func:func.__name__,
                         args=["community_detection_method"],
-                        outputs=["com_det"],
+                        outputs=["comDet"],
                         keep_inputs=False,
                         name="Keep only community detection method name"
-                    ),
+                    )
                 ],name="Community detection"),
                 Pipeline([
                     Step(
@@ -87,7 +152,7 @@ pipeline=Pipeline([
                                     iDP+fn+"_"+comDet+"_radii.png",
                                     iDP+fn+"_"+comDet+"_nodesPerCom.png",
                                    ),
-                        args=["filename","imgDirPath","com_det"],
+                        args=["filename","imgDirPath","comDet"],
                         outputs=["imgDiamPath","imgRadPath","imgNpCPath"]
                     ),
                     Step(
@@ -129,37 +194,18 @@ pipeline=Pipeline([
                     )
                 ],name="nWorkers spacing"),
                 [
-                    Pipeline([
-                        Step(
-                            util.add_params,
-                            params=PG({"nVoters":10,"voterSeed":range(1),
-                                       "numGenFunction":numbering.generateArrangementNumber
-                                      }),
-                            outputs=["nVoters","voterSeed","numGenFunction"]
-                        ),
-                        Step(
-                            lambda p,nV,nW,vS,nGF: numbering.orderBasedWorkerSelection(p.graph,nV,nW,vS,nGF),
-                            args=["partition","nVoters","nWorkers","voterSeed","numGenFunction"],
-                            outputs=["workers"],
-                            read_only_outputs=set("workers")
-                        ),
-                        Step(
-                            lambda func:func.__name__,
-                            args=["numGenFunction"],
-                            outputs=["numGenFunction"],
-                            name="Keep only function name"
-                        ),
-                    ],name="Voting-order-based worker selection"),
+                    voterOrderBasedPipeline,
+                    #communityBasedPipeline
                 ],
                 Pipeline([
                     Step(
-                        lambda fn,iDP,nw,vs,comDet: (
-                                    iDP+fn+"_"+comDet+"_Graph_{}w{}s.png".format(nw,vs),
-                                    iDP+fn+"_"+comDet+"_ClustDist_{}w{}s.png".format(nw,vs),
-                                    iDP+fn+"_"+comDet+"_InClustDist_{}w{}s.png".format(nw,vs),
-                                    iDP+fn+"_"+comDet+"_workersPerCom_{}w{}s.png".format(nw,vs),
+                        lambda fn,iDP,nw,vs,comDet,assignment,wB: (
+                                    "{}{}_{}_{}_wb{}_Graph_{}w{}s.png".format(iDP,fn,comDet,assignment,wB,nw,vs),
+                                    "{}{}_{}_{}_wb{}_ClustDist_{}w{}s.png".format(iDP,fn,comDet,assignment,wB,nw,vs),
+                                    "{}{}_{}_{}_wb{}_InClustDist_{}w{}s.png".format(iDP,fn,comDet,assignment,wB,nw,vs),
+                                    "{}{}_{}_{}_wb{}_workersPerCom_{}w{}s.png".format(iDP,fn,comDet,assignment,wB,nw,vs),
                                    ),
-                        args=["filename","imgDirPath","nWorkers","voterSeed","com_det"],
+                        args=["filename","imgDirPath","nWorkers","voterSeed","comDet","assignment","withBoundary"],
                         outputs=["imgPath","imgCDPath","imgInCDPath","imgWpCPath"]
                     ),
                     Step(
@@ -206,9 +252,9 @@ pipeline=Pipeline([
                             outputs=["minDist"]
                         ),
                         Step(
-                            lambda mD,nw,vs,fn,iDP:"{}{}_{}-closecliquesGraph_{}w{}s.png".format(
-                                                    iDP,fn,mD,nw,vs),
-                            args=["minDist","nWorkers","voterSeed","filename","imgDirPath"],
+                            lambda mD,nw,vs,comDet,aF,fn,iDP:"{}{}_{}-closecliquesGraph_{}w{}s{}aF{}comDet.png".format(
+                                                    iDP,fn,mD,nw,vs,aF,comDet),
+                            args=["minDist","nWorkers","voterSeed","comDet","assignment","filename","imgDirPath"],
                             outputs=["cliqueImgPath"]
                         ),
                         Step(
@@ -233,9 +279,9 @@ pipeline=Pipeline([
                             params={"key":"minDist"}
                         ),
                         Step(
-                            lambda mD,nw,vs,fn,iDP:"{}{}_{}-farcliquesGraph_{}w{}s.png".format(
-                                                    iDP,fn,mD,nw,vs),
-                            args=["minDist","nWorkers","voterSeed","filename","imgDirPath"],
+                            lambda mD,nw,vs,comDet,aF,fn,iDP:"{}{}_{}-farcliquesGraph_{}w{}s{}aF{}comDet.png".format(
+                                                    iDP,fn,mD,nw,vs,aF,comDet),
+                            args=["minDist","nWorkers","voterSeed","comDet","assignment","filename","imgDirPath"],
                             outputs=["cliqueImgPath"]
                         ),
                         Step(

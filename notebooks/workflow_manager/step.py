@@ -103,7 +103,7 @@ class Step():
                         elif output is not None:
                             assert len(self.outputs)==1
                             output=[output]
-               # Collecting input values from container
+                # Collecting input values from container
                 for data_container in progressbar.progressbar(data_containers):
                     if type(data_container) is str:
                         data_container=Data.from_file(data_container)
@@ -168,4 +168,4 @@ class Step():
         return variants_containers
 
     def __repr__(self):
-        return "Step(function = "+str([funct.__name__ for funct in self.function])+", args = "+ str(self.args) + ", nargs = " + str(self.nargs) + ", outputs = "+ str(self.outputs) + ", params = " + str(self.params) + ", keep_inputs = "+str(self.keep_inputs)+", name = "+self.name+")"
+        return "Step(function = "+str([funct.__name__ if callable(funct) else funct for funct in self.function])+", args = "+ str(self.args) + ", nargs = " + str(self.nargs) + ", outputs = "+ str(self.outputs) + ", params = " + str(self.params) + ", keep_inputs = "+str(self.keep_inputs)+", name = "+self.name+")"
