@@ -72,15 +72,16 @@ def workerDistances(partition,workerIds,imgPath=None):
     graph=partition.graph
     data=list(graphDistances(graph,workerIds))
     data=[[d if d!=math.inf else -1 for d in l] for l in data]
-    maxDist=max([max(l,default=0) for l in data],default=0)
+    diameter=graph.diameter()
+    
     colors=["grey","red","blue"]
     labels=["self","same community","other community"]
     # fixed bin size
-    bins = np.arange(-1, maxDist+2, 1) # fixed bin size
+    bins = np.arange(-1, diameter+2, 1) # fixed bin size
     
     fig,ax = plt.subplots(nrows = 1, ncols = 1,figsize=(4,3))
-    fig.xlim=[-1, maxDist+2]
-    fig.yscale="log"
+    fig.xlim=[-1, diameter+2]
+    ax.set_yscale("log")
     ax.hist(data, bins=bins, color=colors, label=labels, stacked=True)
     fig.suptitle='Shortest path lengths between workers'
     fig.xlabel='Shortest path length'
@@ -105,7 +106,7 @@ def sumWorkerDists(graph,workerIds):
 def workerInClusterDistances(partition,workerIds,imgPath=None):
     graph=partition.graph
     nbClusters=len(partition.subgraphs())
-    
+    diameter=graph.diameter()
     nbCol=4
     fig,ax = plt.subplots(nrows = (nbClusters+nbCol-1)//nbCol, ncols = min(nbCol,nbClusters),sharex=True, sharey=True,figsize=(nbCol*4,3*nbClusters//nbCol))
     if nbClusters==1:
@@ -120,12 +121,11 @@ def workerInClusterDistances(partition,workerIds,imgPath=None):
         data=[[d if d!=math.inf else -1 for d in l] for l in data]
         colors=["grey","red","blue"]
         labels=["self","same community","other community"]
-        maxDist=max([max(l,default=0) for l in data],default=0)
-        maxMaxDist=max(maxDist,maxMaxDist)
         
         # fixed bin size
-        bins = np.arange(-1, maxDist+2, 1) # fixed bin size
+        bins = np.arange(-1, diameter+2, 1) # fixed bin size
         
+        ax[idx//nbCol][idx%nbCol].set_yscale("log")
         ax[idx//nbCol][idx%nbCol].hist(data, bins=bins, color=colors, label=labels, stacked=True)
         ax[idx//nbCol][idx%nbCol].title.set_text('SPLs from {} worker{} in cluster {}'.format(
                             len(inClusterWorkers),
@@ -139,8 +139,7 @@ def workerInClusterDistances(partition,workerIds,imgPath=None):
                       "other":comHeights[2*len(comHeights)//3:]
                      }
         
-    fig.xlim=[-1, maxMaxDist+2]
-    fig.yscale="log"
+    fig.xlim=[-1, diameter+2]
     fig.suptitle='Shortest path lengths between workers'
     fig.xlabel='Shortest path length'
     fig.ylabel='Count of workers'

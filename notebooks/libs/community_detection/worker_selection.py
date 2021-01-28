@@ -491,15 +491,16 @@ def sizeProRataWorkerAssignement(partition,clusterGraph,remainingWorkers):
     assert finalNbWorkers-initialNbWorkers==remainingWorkers, "Only {} assigned workers out of {}".format(finalNbWorkers,remainingWorkers)
     return clusterGraph
 
-
 @atLeastNWorkers(1)
-def diameterProRataWorkerAssignement(partition,clusterGraph,remainingWorkers):
+def nodeEdgeRatioProRataWorkerAssignement(partition,clusterGraph,remainingWorkers):
     initialNbWorkers=sum(clusterGraph.vs["nb_workers"])
+    graph=partition.graph
     subgraphs=partition.subgraphs()
-    diameters=[subgraph.diameter() for subgraph in subgraphs]
-    sumDiameters=sum(diameters)
-    
-    proRataWorkers=[remainingWorkers*diameter/sumDiameters for diameter in diameters]
+    graphSize=len(graph.vs)
+    relativeSizes=[len(subgraphs[idx].vs)/len(subgraphs[idx].es) for idx, cluster in enumerate(clusterGraph.vs)]
+    sumNodeEdges=sum(relativeSizes)
+    relativeSizes=[val/sumNodeEdges for val in relativeSizes]
+    proRataWorkers=[remainingWorkers*size for size in relativeSizes]
     intProRataWorkers=[int(prw) for prw in proRataWorkers]
     intProRataWorkers=[min(
                             prw,
@@ -512,30 +513,105 @@ def diameterProRataWorkerAssignement(partition,clusterGraph,remainingWorkers):
     assignedWorkers=sum(intProRataWorkers)
     assert assignedWorkers<=remainingWorkers
     if assignedWorkers<remainingWorkers:
-        assert all(c["nb_workers"] <= len(subgraphs[idx].vs) for idx, c in enumerate(clusterGraph.vs))
+        assert all(c["nb_workers"] <= len(partition.subgraph(idx).vs) for idx, c in enumerate(clusterGraph.vs))
         clusterGraph=sizeOrderedRoundRobinWorkerAssignement(partition,clusterGraph,remainingWorkers-assignedWorkers)
         assignedWorkers+=remainingWorkers-assignedWorkers
     
     finalNbWorkers=sum(clusterGraph.vs["nb_workers"])
-    assert all(c["nb_workers"] <= len(subgraphs[idx].vs) for idx, c in enumerate(clusterGraph.vs))
+    assert all(c["nb_workers"] <= len(partition.subgraph(idx).vs) for idx, c in enumerate(clusterGraph.vs))
     assert finalNbWorkers-initialNbWorkers==remainingWorkers, "Only {} assigned workers out of {}".format(finalNbWorkers,remainingWorkers)
     return clusterGraph
+
+@atLeastNWorkers(1)
+def nodeDensityRatioProRataWorkerAssignement(partition,clusterGraph,remainingWorkers):
+    initialNbWorkers=sum(clusterGraph.vs["nb_workers"])
+    graph=partition.graph
+    subgraphs=partition.subgraphs()
+    graphSize=len(graph.vs)
+    relativeSizes=[len(subgraphs[idx].vs)/subgraphs[idx].density() for idx, cluster in enumerate(clusterGraph.vs)]
+    sumNodeEdges=sum(relativeSizes)
+    relativeSizes=[val/sumNodeEdges for val in relativeSizes]
+    proRataWorkers=[remainingWorkers*size for size in relativeSizes]
+    intProRataWorkers=[int(prw) for prw in proRataWorkers]
+    intProRataWorkers=[min(
+                            prw,
+                            len(subgraphs[idx].vs)-clusterGraph.vs[idx]["nb_workers"]
+                        ) for idx, prw in enumerate(intProRataWorkers)]
+    
+    for idx, cluster in enumerate(clusterGraph.vs):
+        cluster["nb_workers"]+=intProRataWorkers[idx]
+    
+    assignedWorkers=sum(intProRataWorkers)
+    assert assignedWorkers<=remainingWorkers
+    if assignedWorkers<remainingWorkers:
+        assert all(c["nb_workers"] <= len(partition.subgraph(idx).vs) for idx, c in enumerate(clusterGraph.vs))
+        clusterGraph=sizeOrderedRoundRobinWorkerAssignement(partition,clusterGraph,remainingWorkers-assignedWorkers)
+        assignedWorkers+=remainingWorkers-assignedWorkers
+    
+    finalNbWorkers=sum(clusterGraph.vs["nb_workers"])
+    assert all(c["nb_workers"] <= len(partition.subgraph(idx).vs) for idx, c in enumerate(clusterGraph.vs))
+    assert finalNbWorkers-initialNbWorkers==remainingWorkers, "Only {} assigned workers out of {}".format(finalNbWorkers,remainingWorkers)
+    return clusterGraph
+
+@atLeastNWorkers(1)
+def diameterProRataWorkerAssignement(partition,clusterGraph,remainingWorkers):
+    initialNbWorkers=sum(clusterGraph.vs["nb_workers"])
+    subgraphs=partition.subgraphs()
+    diameters=[subgraph.diameter() for subgraph in subgraphs]
+    sumDiameters=sum(diameters)
+    
+    relativeSizes=[diameter/sumDiameters for diameter in diameters]
+
+    proRataWorkers=[remainingWorkers*size for size in relativeSizes]
+    intProRataWorkers=[int(prw) for prw in proRataWorkers]
+    intProRataWorkers=[min(
+                            prw,
+                            len(subgraphs[idx].vs)-clusterGraph.vs[idx]["nb_workers"]
+                        ) for idx, prw in enumerate(intProRataWorkers)]
+    
+    for idx, cluster in enumerate(clusterGraph.vs):
+        cluster["nb_workers"]+=intProRataWorkers[idx]
+    
+    assignedWorkers=sum(intProRataWorkers)
+    assert assignedWorkers<=remainingWorkers
+    if assignedWorkers<remainingWorkers:
+        assert all(c["nb_workers"] <= len(partition.subgraph(idx).vs) for idx, c in enumerate(clusterGraph.vs))
+        clusterGraph=sizeOrderedRoundRobinWorkerAssignement(partition,clusterGraph,remainingWorkers-assignedWorkers)
+        assignedWorkers+=remainingWorkers-assignedWorkers
+    
+    finalNbWorkers=sum(clusterGraph.vs["nb_workers"])
+    assert all(c["nb_workers"] <= len(partition.subgraph(idx).vs) for idx, c in enumerate(clusterGraph.vs))
+    assert finalNbWorkers-initialNbWorkers==remainingWorkers, "Only {} assigned workers out of {}".format(finalNbWorkers,remainingWorkers)
+    return clusterGraph
+
 
 
 @atLeastNWorkers(0)
 def diameterWorkerAssignment(partition,clusterGraph,remainingWorkers):
     initialNbWorkers=sum(clusterGraph.vs["nb_workers"])
     diameters=[subgraph.diameter() for subgraph in partition.subgraphs()]
-    
+    subgraphs=partition.subgraphs()
     workers=[1+diameter//2 for diameter in diameters]
-    assignedWorkers=sum(workers)
-    for idx, n in enumerate(clusterGraph.vs):
-        clusterGraph.vs[idx]["nb_workers"]+=workers[idx]
+    allocatable=[len(subgraphs[idx].vs)-cluster["nb_workers"] for idx, cluster in enumerate(clusterGraph.vs)]
+    relativeSizes=[min(worker,allocatable[idx]) for idx,worker in enumerate(workers)]
+    sumSizes=sum(relativeSizes)
+    relativeSizes=[size/sumSizes for size in relativeSizes]
+    proRataWorkers=[remainingWorkers*size for size in relativeSizes]
+    intProRataWorkers=[int(prw) for prw in proRataWorkers]
+    intProRataWorkers=[min(
+                            prw,
+                            len(subgraphs[idx].vs)-clusterGraph.vs[idx]["nb_workers"]
+                        ) for idx, prw in enumerate(intProRataWorkers)]
     
+    for idx, cluster in enumerate(clusterGraph.vs):
+        cluster["nb_workers"]+=intProRataWorkers[idx]
+    
+    assignedWorkers=sum(intProRataWorkers)
+    assert assignedWorkers<=remainingWorkers
     if assignedWorkers<remainingWorkers:
-        print(sum(clusterGraph.vs["nb_workers"]),assignedWorkers,remainingWorkers)
+        assert all(c["nb_workers"] <= len(partition.subgraph(idx).vs) for idx, c in enumerate(clusterGraph.vs))
         clusterGraph=sizeOrderedRoundRobinWorkerAssignement(partition,clusterGraph,remainingWorkers-assignedWorkers)
-        assignedWorkers=remainingWorkers
+        assignedWorkers+=remainingWorkers-assignedWorkers
     
     finalNbWorkers=sum(clusterGraph.vs["nb_workers"])
     assert all(c["nb_workers"] <= len(partition.subgraph(idx).vs) for idx, c in enumerate(clusterGraph.vs))

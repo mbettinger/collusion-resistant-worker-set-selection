@@ -10,7 +10,11 @@ from libs import order_based_seed_gen
 from libs import preprocessing
 from itertools import permutations
 
-dirPaths=["graphs/csv/","graphs/hcsv/","graphs/ncol/"]
+dirPaths=[#"graphs/tab/",
+          "graphs/csv/"
+          #,"graphs/hcsv/"
+          #,"graphs/ncol/"
+         ]
 destDirPath="graphs/formatted/"
 
 hcsvPath="graphs/hcsv/"

@@ -2,7 +2,7 @@ def formatVertexIds(file_path, new_file_path, header=False):
     """ We expect a file containing row of the format
         vertexId delemiter vertexId
     """
-    delimiters={"csv":",","txt":" "}
+    delimiters={"csv":",","txt":" ","tab":"\t"}
     fileFormat=file_path.split(".")[-1]
     if fileFormat not in delimiters.keys():
         delimiter=" "

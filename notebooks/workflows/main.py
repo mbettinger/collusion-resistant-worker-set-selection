@@ -20,18 +20,29 @@ dirPath="graphs/formatted/"
 filePathList=preprocessing.getFileNamesInDir(dirPath)
 imgDirPath="graphs/img/"
 
+N_VOTERS=10
+VOTER_SEED=range(10,100)
+COMMUNITY_WORKER_REPARTITION=[
+                                community_detection.worker_selection.sizeProRataWorkerAssignement,
+                                community_detection.worker_selection.sizeOrderedRoundRobinWorkerAssignement,
+                                #community_detection.worker_selection.diameterProRataWorkerAssignement,
+                                #community_detection.worker_selection.diameterWorkerAssignment,
+                                #community_detection.worker_selection.nodeEdgeRatioProRataWorkerAssignement,
+                                #community_detection.worker_selection.nodeDensityRatioProRataWorkerAssignement
+                             ]
+WITH_BOUNDARY=[True,
+              False
+             ]
+
+#COMMUNITY_DETECTION
+MIN_DIST_CLOSE=range(1,4)
+#MIN_DIST_FAR
+
 communityBasedPipeline=Pipeline([
         Step(
             util.add_params,
-            params=PG({"community_worker_repartition":[
-                                community_detection.worker_selection.sizeProRataWorkerAssignement,
-                                community_detection.worker_selection.sizeOrderedRoundRobinWorkerAssignement,
-                                community_detection.worker_selection.diameterProRataWorkerAssignement,
-                                #community_detection.worker_selection.diameterWorkerAssignment
-                             ],
-                       "withBoundary":[True,
-                                       False
-                                      ]
+            params=PG({"community_worker_repartition":COMMUNITY_WORKER_REPARTITION,
+                       "withBoundary":WITH_BOUNDARY
                       }),
             outputs=["community_worker_repartition","withBoundary"]
         ),
@@ -50,7 +61,7 @@ communityBasedPipeline=Pipeline([
         ),
             Step(
             util.add_params,
-            params={"voterSeed":"NA"},
+            params={"voterSeed":"NA","nVoters":"NA"},
             outputs=["voterSeed"]
         )
     ],name="Community-based worker selection")
@@ -58,7 +69,7 @@ communityBasedPipeline=Pipeline([
 voterOrderBasedPipeline=Pipeline([
         Step(
             util.add_params,
-            params=PG({"nVoters":10,"voterSeed":range(5),
+            params=PG({"nVoters":N_VOTERS,"voterSeed":VOTER_SEED,
                        "numGenFunction":numbering.generateArrangementNumber
                       }),
             outputs=["nVoters","voterSeed","numGenFunction"]
@@ -120,9 +131,9 @@ pipeline=Pipeline([
                 Pipeline([
                     Step(
                         lambda g:[g.community_multilevel,
-                                        g.community_label_propagation,
-                                        #g.community_leading_eigenvector
-                                 ],
+                                    g.community_label_propagation,
+                                    #g.community_leading_eigenvector
+                                     ],#COMMUNITY_DETECTION
                         args=["graph"],
                         outputs=["community_detection_method"],
                         keep_inputs=False
@@ -162,12 +173,12 @@ pipeline=Pipeline([
                     ),
                     Step(
                         evaluation.diameters,
-                        args=["partition","imgDiamPath"],
+                        args=["partition"],#,"imgDiamPath"],
                         outputs=["diameters"]
                     ),
                     Step(
                         evaluation.radii,
-                        args=["partition","imgRadPath"],
+                        args=["partition"],#,"imgRadPath"],
                         outputs=["radii"]
                     ),
                     Step(
@@ -183,7 +194,7 @@ pipeline=Pipeline([
                 ],name="Graph & Community metrics"),
                 Pipeline([
                     Step(
-                        lambda p:[int(nW) for nW in np.logspace(1, math.log10(len(p.graph.vs)//2), 5, endpoint=True,dtype=int)],
+                        lambda p:[int(nW) for nW in np.logspace(1, math.log10(len(p.graph.vs)//5), 10, endpoint=True,dtype=int)],
                         args=["partition"],
                         outputs=["nWorkers"],
                         read_only_outputs=set("nWorkers")
@@ -194,8 +205,8 @@ pipeline=Pipeline([
                     )
                 ],name="nWorkers spacing"),
                 [
-                    voterOrderBasedPipeline,
-                    #communityBasedPipeline
+                    #voterOrderBasedPipeline,
+                    communityBasedPipeline
                 ],
                 Pipeline([
                     Step(
@@ -248,7 +259,7 @@ pipeline=Pipeline([
                         ),
                         Step(
                             util.add_params,
-                            params=PG({"minDist":range(1,4)}),
+                            params=PG({"minDist":MIN_DIST_CLOSE}),
                             outputs=["minDist"]
                         ),
                         Step(
@@ -270,7 +281,7 @@ pipeline=Pipeline([
                             outputs=["distType"]
                         ),
                         Step(
-                            lambda d:list(range(4,d+1)),
+                            lambda d:list(range(6,d+1)),#MIN_DIST_FAR
                             args=["diameter"],
                             outputs=["minDist"],
                         ),
