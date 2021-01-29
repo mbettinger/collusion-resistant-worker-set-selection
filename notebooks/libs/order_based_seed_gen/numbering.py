@@ -30,9 +30,9 @@ def valueInList(searchList):
 def generatePermutationNumber(sublist,totalList):
     arrNumber=0
     #Sum(i=0:V-1|i!(sum(k=0:i|-1{xk<xi})))
-    N=len(totalList)
+    N=len(sublist)
     fact=math.factorial
-    x=valueInList(totalList)
+    x=valueInList(sublist)
     
     arrNumber=sum([fact(N-1-i)*sum(1 for k in range(i+1,N) if x(i)>x(k)) for i in range(0,N-1)])
     return arrNumber
