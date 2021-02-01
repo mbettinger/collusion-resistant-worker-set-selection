@@ -162,9 +162,10 @@ pipeline=Pipeline([
                                     iDP+fn+"_"+comDet+"_diameters.png",
                                     iDP+fn+"_"+comDet+"_radii.png",
                                     iDP+fn+"_"+comDet+"_nodesPerCom.png",
+                                    iDP+fn+"_"+comDet+"_comDensities.png",
                                    ),
                         args=["filename","imgDirPath","comDet"],
-                        outputs=["imgDiamPath","imgRadPath","imgNpCPath"]
+                        outputs=["imgDiamPath","imgRadPath","imgNpCPath","comDensPath"]
                     ),
                     Step(
                         lambda p: p.graph.diameter(),
@@ -173,13 +174,18 @@ pipeline=Pipeline([
                     ),
                     Step(
                         evaluation.diameters,
-                        args=["partition"],#,"imgDiamPath"],
+                        args=["partition","imgDiamPath"],
                         outputs=["diameters"]
                     ),
                     Step(
                         evaluation.radii,
-                        args=["partition"],#,"imgRadPath"],
+                        args=["partition","imgRadPath"],
                         outputs=["radii"]
+                    ),
+                    Step(
+                        evaluation.densities,
+                        args=["partition","comDensPath"],
+                        outputs=["densities"]
                     ),
                     Step(
                         evaluation.optimalWorkerCountByDiameters,

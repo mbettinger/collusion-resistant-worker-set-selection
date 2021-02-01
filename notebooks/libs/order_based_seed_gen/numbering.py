@@ -17,8 +17,11 @@ def binSearch(a, x):
 
 def searchFromIn(sublist,orderedList):
     def idxInOrderedListOfItemInSublist(sublistIdx):
-        element=sublist[sublistIdx]
-        return binSearch(orderedList, element)
+        if len(sublist)>0:
+            element=sublist[sublistIdx]
+            return binSearch(orderedList, element)
+        else:
+            return -1
     return idxInOrderedListOfItemInSublist
 
 
@@ -53,36 +56,22 @@ def nbCombi(toFind,among):
 def generateCombinationNumber(sublist, totalList):
     eligibleList=sorted(totalList)
     voterList=sorted(sublist)
-    combiNumber=0
 
-    #Simplified expression? Sum(i=0:V-1|sum(k=1:(j(i)-j(i-1))-i|C(V-1 among N-j(i)+1)))
+    #Simplified expression:
+    #=Sum(k=0:(j(0)-1)|C(V-1 among N-j(0)+k))
+    #+Sum(i=1:V-1|sum(k=0:(j(i)-j(i-1)-2)|C(V-(i+1) among N-j(i)+k)))
     
     nVoters=len(voterList)
     nEligible=len(eligibleList)
-    nHoles=nEligible-nVoters
-    
-    foundHoles=0
-    foundVoters=0
     
     j=searchFromIn(voterList,eligibleList)
-    
-    eligibleRef=0
-    #print(voterList,eligibleList)
-    for i in range(nVoters):
-        voter=voterList[i]
-        eligibleIdx=j(i)
-        
-        diff=eligibleIdx-eligibleRef
-        #print("voter",voter,"idx",i,"EIdx",eligibleIdx,"diff",diff)
-        foundVoters+=1
-        for hole in range(diff):#if diff=0 range outputs []
-            foundHoles+=1
-            #print("nV",nVoters,"fV",foundVoters,"nE",nEligible,"fH",foundHoles)
-            #print("Combi",nVoters-foundVoters,"among",nEligible-foundHoles-foundVoters+1,":",nbCombi(nVoters-foundVoters,nEligible-foundHoles-foundVoters+1))
-            combiNumber+=nbCombi(nVoters-foundVoters,nEligible-foundHoles-foundVoters+1)
-            
-        eligibleRef=eligibleIdx+1
 
+    firstElement=sum([nbCombi(nVoters-1,nEligible-j(0)+k)  for k in range(0,j(0))])
+    combiNumber=firstElement+sum([
+                                sum([
+                                    nbCombi(nVoters-i-1,nEligible-j(i)+k) 
+                                    for k in range(0,j(i)-j(i-1)-1)]) 
+                                for i in range(1,nVoters)])
     return combiNumber
 
 def generateArrangementNumber(sublist, totalList):

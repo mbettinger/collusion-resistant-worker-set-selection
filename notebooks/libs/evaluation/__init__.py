@@ -171,6 +171,18 @@ def radii(partition,imgPath=None):
     
     return radii
     
+def densities(partition,imgPath=None):
+    subgraphs=partition.subgraphs()
+    densities=list([subgraph.density() for subgraph in subgraphs])
+    fig,ax = plt.subplots(nrows = 1, ncols = 1,figsize=(4,3))
+    ax.plot(densities)
+    ax.grid()
+    if imgPath is not None:
+        fig.savefig(imgPath)
+    plt.close(fig)
+    
+    return densities
+    
 def nodesPerCommunity(partition,imgPath=None):
     graph=partition.graph
     nbClusters=len(Counter(graph.vs["cluster"]))
