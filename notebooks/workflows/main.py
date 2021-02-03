@@ -21,21 +21,21 @@ filePathList=preprocessing.getFileNamesInDir(dirPath)
 imgDirPath="graphs/img/"
 
 N_VOTERS=10
-VOTER_SEED=range(10,100)
+VOTER_SEED=range(0,5)
 COMMUNITY_WORKER_REPARTITION=[
                                 community_detection.worker_selection.sizeProRataWorkerAssignement,
-                                community_detection.worker_selection.sizeOrderedRoundRobinWorkerAssignement,
+                                #community_detection.worker_selection.sizeOrderedRoundRobinWorkerAssignement,
                                 #community_detection.worker_selection.diameterProRataWorkerAssignement,
                                 #community_detection.worker_selection.diameterWorkerAssignment,
                                 #community_detection.worker_selection.nodeEdgeRatioProRataWorkerAssignement,
                                 #community_detection.worker_selection.nodeDensityRatioProRataWorkerAssignement
                              ]
 WITH_BOUNDARY=[True,
-              False
+              #False
              ]
 
 #COMMUNITY_DETECTION
-MIN_DIST_CLOSE=range(1,4)
+MIN_DIST_CLOSE=range(1,2)
 #MIN_DIST_FAR
 
 communityBasedPipeline=Pipeline([
@@ -62,9 +62,37 @@ communityBasedPipeline=Pipeline([
             Step(
             util.add_params,
             params={"voterSeed":"NA","nVoters":"NA"},
-            outputs=["voterSeed"]
+            outputs=["voterSeed","nVoters"]
         )
     ],name="Community-based worker selection")
+
+farCliques=Pipeline([
+        Step(
+            util.add_params,
+            params={"distType":"far"},
+            outputs=["distType"]
+        ),
+        Step(
+            lambda d:list(range(6,d+1)),#MIN_DIST_FAR
+            args=["diameter"],
+            outputs=["minDist"],
+        ),
+        MetaStep(
+            meta.split,
+            params={"key":"minDist"}
+        ),
+        Step(
+            lambda mD,nw,vs,comDet,aF,fn,iDP:"{}{}_{}-farcliquesGraph_{}w{}s{}aF{}comDet.png".format(
+                                    iDP,fn,mD,nw,vs,aF,comDet),
+            args=["minDist","nWorkers","voterSeed","comDet","assignment","filename","imgDirPath"],
+            outputs=["cliqueImgPath"]
+        ),
+        Step(
+            evaluation.farnessCliques,
+            args=["graph", "minDist", "workers"],#, "cliqueImgPath"],
+            outputs=["candidates"]
+        )
+    ],name="Far workers cliques")
 
 voterOrderBasedPipeline=Pipeline([
         Step(
@@ -131,7 +159,7 @@ pipeline=Pipeline([
                 Pipeline([
                     Step(
                         lambda g:[g.community_multilevel,
-                                    g.community_label_propagation,
+                                    #g.community_label_propagation,
                                     #g.community_leading_eigenvector
                                      ],#COMMUNITY_DETECTION
                         args=["graph"],
@@ -200,7 +228,8 @@ pipeline=Pipeline([
                 ],name="Graph & Community metrics"),
                 Pipeline([
                     Step(
-                        lambda p:[int(nW) for nW in np.logspace(1, math.log10(len(p.graph.vs)//5), 10, endpoint=True,dtype=int)],
+                        #lambda p:[int(nW) for nW in np.logspace(1, math.log10(len(p.graph.vs)//5), 10, endpoint=True,dtype=int)],
+                        lambda p:[200*i+800 for i in range(1,12)],
                         args=["partition"],
                         outputs=["nWorkers"],
                         read_only_outputs=set("nWorkers")
@@ -211,8 +240,8 @@ pipeline=Pipeline([
                     )
                 ],name="nWorkers spacing"),
                 [
-                    #voterOrderBasedPipeline,
-                    communityBasedPipeline
+                    voterOrderBasedPipeline,
+                    #communityBasedPipeline
                 ],
                 Pipeline([
                     Step(
@@ -246,15 +275,15 @@ pipeline=Pipeline([
                         outputs=["graph"],
                         keep_inputs=False
                     ),
-                    Step(
-                        community_detection.draw.emphasizeWorkers,
-                        args=["graph","workers"],
-                        outputs=["graph"]
-                    ),
-                    Step(
-                        community_detection.draw.drawGraph,
-                        args=["graph","imgPath"]
-                    ),
+                    #Step(
+                    #    community_detection.draw.emphasizeWorkers,
+                    #    args=["graph","workers"],
+                    #    outputs=["graph"]
+                    #),
+                    #Step(
+                    #    community_detection.draw.drawGraph,
+                    #    args=["graph","imgPath"]
+                    #),
                 ],name="Workers metrics"),
                 [
                     Pipeline([
@@ -280,33 +309,7 @@ pipeline=Pipeline([
                             outputs=["candidates"]
                         )
                     ],name="Close workers cliques"),
-                    Pipeline([
-                        Step(
-                            util.add_params,
-                            params={"distType":"far"},
-                            outputs=["distType"]
-                        ),
-                        Step(
-                            lambda d:list(range(6,d+1)),#MIN_DIST_FAR
-                            args=["diameter"],
-                            outputs=["minDist"],
-                        ),
-                        MetaStep(
-                            meta.split,
-                            params={"key":"minDist"}
-                        ),
-                        Step(
-                            lambda mD,nw,vs,comDet,aF,fn,iDP:"{}{}_{}-farcliquesGraph_{}w{}s{}aF{}comDet.png".format(
-                                                    iDP,fn,mD,nw,vs,aF,comDet),
-                            args=["minDist","nWorkers","voterSeed","comDet","assignment","filename","imgDirPath"],
-                            outputs=["cliqueImgPath"]
-                        ),
-                        Step(
-                            evaluation.farnessCliques,
-                            args=["graph", "minDist", "workers"],#, "cliqueImgPath"],
-                            outputs=["candidates"]
-                        )
-                    ],name="Far workers cliques"),
+                    #farCliques
                 ],
                 MetaStep(
                     meta.remove_params,

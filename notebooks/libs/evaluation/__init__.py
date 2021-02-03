@@ -242,7 +242,7 @@ def graphCliques(criterion, graph, minDist, nodesSubset=None, imgPath=None):
         ig.plot(g,imgPath)
 
     try:
-        cliques=deadline(10)(g.largest_cliques)()
+        cliques=g.largest_cliques()
         candidates=sorted([[nodesSubset[idx] for idx in clique] for clique in cliques],reverse=True)
         
     except TimeoutException:
