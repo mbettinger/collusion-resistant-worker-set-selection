@@ -1,1 +1,1 @@
- python notebooks/ -w workflows.main -j -o "outputs/<data[filename,nWorkers,voterSeed,comDet,assignment,withBoundary,distType,minDist]>"
+python notebooks/ -w workflows.main -j -o "outputs/<data[filename,nWorkers,voterSeed,comDet,assignment,withBoundary,distType,minDist]>"
